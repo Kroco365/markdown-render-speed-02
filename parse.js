@@ -347,12 +347,18 @@ const HTML_BLOCK = edit(
   .replace('attribute', / +[a-zA-Z:_][\w.:-]*(?: *= *"[^"\n]*"| *= *'[^'\n]*'| *= *[^\s"'=<>`]+)?/)
   .regex();
 
-function makeParagraph(listInterrupt) {
-  return edit(PARAGRAPH_CORE)
+function makeParagraph(listInterrupt, withTable = true) {
+  const e = edit(PARAGRAPH_CORE)
     .replace('hr', HR)
     .replace('heading', ' {0,3}#{1,6}(?:\\s|$)')
-    .replace('|lheading', '')
-    .replace('table', GFM_TABLE)
+    .replace('|lheading', '');
+  // A table can interrupt a top-level paragraph, but inside a blockquote
+  // the paragraph pattern is built without the table lookahead (marked's
+  // createParagraph drops `|table`), so a table-looking line lazily
+  // continues the blockquote paragraph instead of ending it.
+  if (withTable) e.replace('table', GFM_TABLE);
+  else e.replace('|table', '');
+  return e
     .replace('blockquote', ' {0,3}>')
     .replace('fences', ' {0,3}(?:`{3,}(?=[^`\\n]*(?:\\n|$))|~~~)[^\\n]*(?:\\n|$)')
     .replace('list', listInterrupt)
@@ -378,8 +384,9 @@ const GFM_TABLE = edit(
 // Only non-empty lists starting from 1 can interrupt paragraphs.
 const PARAGRAPH = makeParagraph(/ {0,3}(?:[*+-]|1[.)])[ \t]+[^ \t\n]/);
 // Inside a blockquote a bare list marker (any number) starts a sibling list,
-// so it must not be lazily continued as paragraph text.
-const BLOCKQUOTE_PARAGRAPH = makeParagraph(/ {0,3}(?:[*+-]|\d{1,9}[.)])(?:[ \t]|\n|$)/);
+// so it must not be lazily continued as paragraph text. The blockquote
+// paragraph also drops the table lookahead (see makeParagraph).
+const BLOCKQUOTE_PARAGRAPH = makeParagraph(/ {0,3}(?:[*+-]|\d{1,9}[.)])(?:[ \t]|\n|$)/, false);
 
 // A line with only whitespace after the marker is blank, so it must not
 // start a paragraph that lazily continues onto the next line.
