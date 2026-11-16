@@ -1245,22 +1245,29 @@ function blockTokens(ctx, str, tokens = [], lastParagraphClipped = false) {
     while (str[pos + spaces] === ' ') spaces++;
     const f = str[pos + spaces];
     const codeIndent = spaces >= 4 || (spaces <= 3 && f === '\t');
+    // A blank line is spaces/tabs up to a newline or the end of the input.
+    // The space pattern can only match there, so content lines skip it.
+    let q = pos + spaces;
+    while (str[q] === ' ' || str[q] === '\t') q++;
+    const isBlank = str[q] === '\n' || q >= len;
 
     let token = null;
 
     // blank lines
-    token = tokSpace(str, pos);
-    if (token) {
-      pos = token.end;
-      const lastToken = tokens.at(-1);
-      if (token.raw.length === 1 && lastToken !== undefined) {
-        // A single \n as a spacer terminates the last line, so move it
-        // there instead of making an unnecessary paragraph break.
-        lastToken.raw += '\n';
-      } else {
-        tokens.push(token);
+    if (isBlank) {
+      token = tokSpace(str, pos);
+      if (token) {
+        pos = token.end;
+        const lastToken = tokens.at(-1);
+        if (token.raw.length === 1 && lastToken !== undefined) {
+          // A single \n as a spacer terminates the last line, so move it
+          // there instead of making an unnecessary paragraph break.
+          lastToken.raw += '\n';
+        } else {
+          tokens.push(token);
+        }
+        continue;
       }
-      continue;
     }
 
     // indented code (cannot interrupt a paragraph; merged below)
